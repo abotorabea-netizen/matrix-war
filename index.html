@@ -1,13 +1,164 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ماتریکس وار</title>
-    <script src="https://tapi.bale.ai/miniapp.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ماتریکس وار</title>
+<script src="https://tapi.bale.ai/miniapp.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+    font-family: Tahoma, sans-serif;
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    color: #fff;
+    min-height: 100vh;
+    padding: 15px;
+}
+.header {
+    text-align: center;
+    padding: 15px;
+    background: rgba(244,196,48,0.1);
+    border-radius: 15px;
+    margin-bottom: 15px;
+    border: 1px solid #f4c430;
+}
+.header h1 { color: #f4c430; font-size: 22px; }
+.card {
+    background: rgba(255,255,255,0.08);
+    border-radius: 15px;
+    padding: 15px;
+    margin-bottom: 12px;
+    border: 1px solid rgba(244,196,48,0.3);
+}
+.card h2 {
+    color: #f4c430;
+    font-size: 16px;
+    margin-bottom: 10px;
+}
+.row {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+.row:last-child { border: none; }
+.btn {
+    background: #f4c430;
+    color: #1a1a2e;
+    border: none;
+    padding: 10px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    width: 100%;
+    margin-top: 8px;
+}
+.btn:active { background: #d4a420; }
+.loading { text-align: center; padding: 30px; color: #f4c430; }
+.error { color: #ff6b6b; text-align: center; padding: 20px; }
+</style>
 </head>
 <body>
-    <h1>⚔️ ماتریکس وار</h1>
-    <p>مینی‌اپ با موفقیت بارگذاری شد!</p>
+
+<div class="header">
+    <h1>⚔️ ماتریکس وار ⚔️</h1>
+    <div id="userName" style="font-size:13px;color:#aaa;"></div>
+</div>
+
+<div id="content">
+    <div class="loading">⏳ در حال بارگذاری...</div>
+</div>
+
+<script>
+const API_URL = "https://matrix-war.onrender.com";
+const tg = window.Telegram.WebApp;
+tg.ready();
+tg.expand();
+
+const user = tg.initDataUnsafe?.user;
+const userId = user?.id;
+
+if (user) {
+    document.getElementById('userName').innerText = `👤 ${user.first_name}`;
+}
+
+async function loadPlayer() {
+    if (!userId) {
+        document.getElementById('content').innerHTML = 
+            '<div class="error">لطفاً از داخل ربات باز کن</div>';
+        return;
+    }
+    
+    try {
+        const res = await fetch(`${API_URL}/api/player/${userId}`);
+        if (!res.ok) throw new Error('یافت نشد');
+        const p = await res.json();
+        renderPlayer(p);
+    } catch (e) {
+        document.getElementById('content').innerHTML = 
+            '<div class="error">❌ بازیکن یافت نشد.<br>اول در ربات /start بزن.</div>';
+    }
+}
+
+function renderPlayer(p) {
+    const power = (p.vikings||0)*5 + (p.knights||0)*10 + (p.archers||0)*7 + (p.catapult||0)*20;
+    const defense = (p.wall||0)*10 + (p.tower||0)*15 + (p.shield||0)*5;
+    
+    document.getElementById('content').innerHTML = `
+        <div class="card">
+            <h2>🏰 ${p.kingdom_name}</h2>
+            <div class="row"><span>💰 طلا</span><span>${(p.gold||0).toLocaleString()}</span></div>
+            <div class="row"><span>🌾 غذا</span><span>${(p.food||0).toLocaleString()}</span></div>
+            <div class="row"><span>👥 جمعیت</span><span>${(p.population||0).toLocaleString()}</span></div>
+            <div class="row"><span>😊 رضایت</span><span>${p.happiness||75}%</span></div>
+        </div>
+        
+        <div class="card">
+            <h2>⚔️ ارتش</h2>
+            <div class="row"><span>🪓 وایکینگ</span><span>${p.vikings||0}</span></div>
+            <div class="row"><span>🏇 شوالیه</span><span>${p.knights||0}</span></div>
+            <div class="row"><span>🏹 کماندار</span><span>${p.archers||0}</span></div>
+            <div class="row"><span>🏰 منجنیق</span><span>${p.catapult||0}</span></div>
+        </div>
+        
+        <div class="card">
+            <h2>📊 قدرت‌ها</h2>
+            <div class="row"><span>⚔️ قدرت تهاجمی</span><span>${power.toLocaleString()}</span></div>
+            <div class="row"><span>🛡️ قدرت دفاعی</span><span>${defense.toLocaleString()}</span></div>
+        </div>
+        
+        <button class="btn" onclick="loadRank()">🏆 رتبه‌بندی</button>
+        <button class="btn" onclick="closeApp()" style="background:#666;color:#fff;margin-top:8px;">🔙 بازگشت به ربات</button>
+    `;
+}
+
+async function loadRank() {
+    try {
+        const res = await fetch(`${API_URL}/api/rank`);
+        const data = await res.json();
+        let html = '<div class="card"><h2>🏆 ۱۰ کشور برتر</h2>';
+        if (data.length === 0) {
+            html += '<div class="row">هنوز بازیکنی نیست</div>';
+        } else {
+            data.forEach((p, i) => {
+                const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i+1}.`;
+                html += `<div class="row"><span>${medal} ${p.kingdom_name}</span><span>⚔️ ${p.power}</span></div>`;
+            });
+        }
+        html += '</div><button class="btn" onclick="loadPlayer()">🔙 بازگشت</button>';
+        document.getElementById('content').innerHTML = html;
+    } catch (e) {
+        alert('خطا در دریافت رتبه‌بندی');
+    }
+}
+
+function closeApp() {
+    tg.close();
+}
+
+loadPlayer();
+</script>
+
 </body>
-</html>
+    </html>
